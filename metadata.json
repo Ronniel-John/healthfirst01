@@ -1,0 +1,8 @@
+{
+  "name": "Health First",
+  "description": "Health First Care Clinic - Primary care that feels like family in Euless, TX.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
