@@ -562,7 +562,7 @@ export default function App() {
         <div className="max-w-6xl mx-auto flex justify-center flex-wrap gap-8 md:gap-12 lg:gap-16 items-center">
           {/* Blue Cross Blue Shield of Texas */}
           <div className="h-12 flex items-center justify-center grayscale opacity-75 hover:grayscale-0 hover:opacity-100 transition-all duration-300 transform hover:scale-105" title="Blue Cross Blue Shield of Texas">
-            <svg className="h-11 w-auto" viewBox="0 0 310 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg className="h-11 w-auto" viewBox="0 0 340 52" fill="none" xmlns="http://www.w3.org/2000/svg">
               {/* 1. Cross Emblem */}
               <g id="cross-emblem">
                 {/* Cross Base */}
@@ -696,6 +696,26 @@ export default function App() {
             </svg>
           </div>
 
+          {/* Ambetter */}
+          <div className="h-12 flex items-center justify-center grayscale opacity-75 hover:grayscale-0 hover:opacity-100 transition-all duration-300 transform hover:scale-105" title="Ambetter">
+            <svg className="h-9 w-auto" viewBox="0 0 200 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="24" cy="24" r="22" fill="#B8006B" />
+              <text x="24" y="27" fill="#FFFFFF" fontSize="8" fontWeight="bold" fontFamily="Arial, Helvetica, sans-serif" textAnchor="middle" letterSpacing="-0.2">ambetter.</text>
+              <text x="54" y="32" fill="#B8006B" fontSize="27" fontWeight="bold" fontFamily="Arial, Helvetica, sans-serif" letterSpacing="-0.5">ambetter.</text>
+            </svg>
+          </div>
+
+          {/* UMR */}
+          <div className="h-12 flex items-center justify-center grayscale opacity-75 hover:grayscale-0 hover:opacity-100 transition-all duration-300 transform hover:scale-105" title="UMR">
+            <svg className="h-10 w-auto" viewBox="0 0 145 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+              {/* UMR Bold Serif Text */}
+              <text x="6" y="31" fill="#1C1C1A" fontSize="35" fontWeight="900" fontFamily="Georgia, 'Times New Roman', serif" letterSpacing="0.5">UMR</text>
+              <text x="96" y="31" fill="#6B6B68" fontSize="6.5" fontWeight="bold" fontFamily="sans-serif">SM</text>
+              {/* Green curved swoosh underline */}
+              <path d="M 4 43 C 38 35 78 33 135 48 C 137 42 133 36 122 33 C 78 28 38 32 4 39 Z" fill="#43B02A" />
+            </svg>
+          </div>
+
           {/* Tricare / Baylor Scott & White */}
           <div className="h-12 flex items-center justify-center grayscale opacity-75 hover:grayscale-0 hover:opacity-100 transition-all duration-300 transform hover:scale-105" title="TRICARE">
             <svg className="h-8 w-auto" viewBox="0 0 150 40" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -725,7 +745,7 @@ export default function App() {
           {[
             { q: "Are you accepting new patients?", a: "Yes, we are currently welcoming new patients from Euless and the surrounding areas. We often have same-day or next-day availability." },
             { q: "Do you offer same-day appointments?", a: "Absolutely. We reserve specific blocks in our schedule every day for sick visits and urgent needs. Call early in the day for the best availability." },
-            { q: "What insurance plans do you accept?", a: "We accept Medicare and most major commercial insurances including BlueCross, Aetna, Cigna, and UnitedHealthcare. Please note: Health First currently does not accept Medicaid plans. If you're unsure, call our front desk." },
+            { q: "What insurance plans do you accept?", a: "We accept Medicare and most major commercial insurances including BlueCross BlueShield, Aetna, Cigna, UnitedHealthcare, Humana, Ambetter, and UMR. Please note: Health First currently does not accept Medicaid plans. If you're unsure, call our front desk." },
             { q: "Can I book a telehealth visit?", a: "Yes. Telehealth is available for current patients for follow-ups, simple illnesses, and medication refills." },
           ].map((faq, idx) => (
             <FAQItem key={idx} question={faq.q} answer={faq.a} />

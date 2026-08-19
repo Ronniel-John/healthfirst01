@@ -12,16 +12,25 @@ async function startServer() {
 
   app.use(express.json());
 
-  // Initialize Gemini Client
-  const apiKey = process.env.GEMINI_API_KEY;
-  const ai = new GoogleGenAI({
-    apiKey: apiKey,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      }
+  // Lazy initialization of Gemini Client
+  let ai: GoogleGenAI | null = null;
+  function getGeminiClient(): GoogleGenAI {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY environment variable is required");
     }
-  });
+    if (!ai) {
+      ai = new GoogleGenAI({
+        apiKey: apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          }
+        }
+      });
+    }
+    return ai;
+  }
 
   const SYSTEM_INSTRUCTION = `
 You are "Pearl", the official AI virtual assistant for Health First Care Clinic. Your primary goal is to help patients book appointments, answer basic questions about medical & primary care services, and provide office logistics (hours, location).
@@ -49,7 +58,7 @@ Only discuss pricing if explicitly asked, and always frame it as a starting esti
 - For complex medical treatments or specialized diagnostics: State that a doctor's examination is required before an accurate cost or treatment plan can be provided.
 
 INSURANCE & CREDITS:
-We accept major medical insurance providers, including BlueCross BlueShield, Aetna, UnitedHealthcare, Medicare, Cigna, and Humana.
+We accept major medical insurance providers, including BlueCross BlueShield, Aetna, UnitedHealthcare, Medicare, Cigna, Humana, Ambetter, and UMR.
 If a patient asks about an outstanding balance or an active account credit, state: "For your privacy and security, account balances and payment credits must be verified directly by our billing coordinator. Let me forward your name to them, and they will contact you shortly."
 
 CONSTRAINTS & BEHAVIOR:
@@ -154,7 +163,7 @@ CONSTRAINTS & BEHAVIOR:
     try {
       const { message, history } = req.body;
 
-      if (!apiKey) {
+      if (!process.env.GEMINI_API_KEY) {
         return res.status(503).json({
           error: "Gemini API Key is not configured. Please add GEMINI_API_KEY to your Secrets in the Settings menu."
         });
@@ -163,6 +172,8 @@ CONSTRAINTS & BEHAVIOR:
       if (!message) {
         return res.status(400).json({ error: "Message is required." });
       }
+
+      const gemini = getGeminiClient();
 
       // Format history for @google/genai SDK
       const contents: any[] = [];
@@ -184,7 +195,7 @@ CONSTRAINTS & BEHAVIOR:
       });
 
       // Call Gemini API
-      const response = await ai.models.generateContent({
+      const response = await gemini.models.generateContent({
         model: "gemini-2.5-flash",
         contents: contents,
         config: {
