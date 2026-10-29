@@ -18,7 +18,7 @@ interface FrontDeskUser {
   email: string;
   role: string;
   department: string;
-  avatar: string;
+  avatar?: string;
 }
 
 interface PatientInquiry {
@@ -33,31 +33,22 @@ interface PatientInquiry {
   staffNotes?: string;
 }
 
-const FRONT_DESK_STAFF: FrontDeskUser[] = [
-  {
-    id: 'FD-3015',
-    name: 'Elena Rostova',
-    title: 'Lead Front Desk Coordinator',
-    email: 'elena.rostova@healthfirst.clinic',
-    role: 'Front Desk Administration',
-    department: 'Patient Reception & Intake',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200'
-  },
-  {
-    id: 'FD-3022',
-    name: 'Jessica Miller',
-    title: 'Patient Intake Specialist',
-    email: 'jessica.miller@healthfirst.clinic',
-    role: 'Front Desk Reception',
-    department: 'Patient Services',
-    avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=200'
-  }
-];
+const OFFICIAL_STAFF_USER: FrontDeskUser = {
+  id: 'FD-101',
+  name: 'Front Desk Administration',
+  title: 'Front Desk Coordinator',
+  email: 'info@health1stcareclinic.org',
+  role: 'Front Desk Administration',
+  department: 'Patient Reception & Intake'
+};
+
+const OFFICIAL_EMAIL = 'info@health1stcareclinic.org';
+const OFFICIAL_PASSWORD = 'frontdesk1!';
 
 export default function StaffPortal({ onBackToMain }: StaffPortalProps) {
   const [currentUser, setCurrentUser] = useState<FrontDeskUser | null>(null);
-  const [email, setEmail] = useState('elena.rostova@healthfirst.clinic');
-  const [password, setPassword] = useState('••••••••••••');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -72,6 +63,7 @@ export default function StaffPortal({ onBackToMain }: StaffPortalProps) {
   const [fetchingInquiries, setFetchingInquiries] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedInquiryModal, setSelectedInquiryModal] = useState<PatientInquiry | null>(null);
+  const [inquiryToDelete, setInquiryToDelete] = useState<PatientInquiry | null>(null);
   const [tempNotes, setTempNotes] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -90,46 +82,47 @@ export default function StaffPortal({ onBackToMain }: StaffPortalProps) {
 
   // Fetch inquiries from server
   const fetchInquiries = async () => {
+    if (!currentUser) return;
     setFetchingInquiries(true);
     try {
       const res = await fetch('/api/inquiries');
       if (res.ok) {
         const data = await res.json();
-        setInquiries(data);
-        // Sync selected modal if open
-        if (selectedInquiryModal) {
-          const currentInModal = data.find((i: PatientInquiry) => i.id === selectedInquiryModal.id);
-          if (currentInModal) {
-            setSelectedInquiryModal(currentInModal);
+        if (Array.isArray(data)) {
+          setInquiries(data);
+          // Sync selected modal if open
+          if (selectedInquiryModal) {
+            const currentInModal = data.find((i: PatientInquiry) => i.id === selectedInquiryModal.id);
+            if (currentInModal) {
+              setSelectedInquiryModal(currentInModal);
+            }
           }
         }
       }
-    } catch (err) {
-      console.error('Failed to fetch patient inquiries:', err);
+    } catch {
+      // Gracefully handle server reconnects / polling transitions without noisy console errors
     } finally {
       setFetchingInquiries(false);
     }
   };
 
   useEffect(() => {
+    if (!currentUser) return;
     fetchInquiries();
-    // Poll every 4 seconds to get new inquiries submitted from the public site form
-    const interval = setInterval(fetchInquiries, 4000);
+    // Poll every 5 seconds to sync inquiries submitted from the public site form while logged in
+    const interval = setInterval(fetchInquiries, 5000);
     return () => clearInterval(interval);
-  }, []);
-
-  const handleQuickLogin = (staff: FrontDeskUser) => {
-    setEmail(staff.email);
-    setPassword('••••••••••••');
-    setError(null);
-  };
+  }, [currentUser]);
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!email.trim() || !password.trim()) {
-      setError('Please enter your front desk email/staff ID and password.');
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail || !cleanPassword) {
+      setError('Please enter your front desk email and password.');
       return;
     }
 
@@ -137,21 +130,21 @@ export default function StaffPortal({ onBackToMain }: StaffPortalProps) {
 
     setTimeout(() => {
       setLoading(false);
-      const matched = FRONT_DESK_STAFF.find(s => s.email.toLowerCase() === email.toLowerCase());
-      if (matched) {
-        setCurrentUser(matched);
+      if (cleanEmail === OFFICIAL_EMAIL && cleanPassword === OFFICIAL_PASSWORD) {
+        try {
+          if (rememberMe) {
+            localStorage.setItem('hf_staff_email', cleanEmail);
+          } else {
+            localStorage.removeItem('hf_staff_email');
+          }
+        } catch {
+          // ignore storage errors
+        }
+        setCurrentUser(OFFICIAL_STAFF_USER);
       } else {
-        setCurrentUser({
-          id: `FD-${Math.floor(1000 + Math.random() * 9000)}`,
-          name: email.split('@')[0].replace('.', ' ').toUpperCase(),
-          title: 'Front Desk Representative',
-          email: email,
-          role: 'Front Desk Administration',
-          department: 'Patient Reception & Intake',
-          avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200'
-        });
+        setError('Invalid email or password. Please enter the authorized front desk credentials.');
       }
-    }, 600);
+    }, 450);
   };
 
   const updateInquiryStatus = async (id: string, newStatus: 'New' | 'Contacted' | 'Resolved') => {
@@ -163,16 +156,13 @@ export default function StaffPortal({ onBackToMain }: StaffPortalProps) {
     showToast(`Status for #${id} updated to "${newStatus}"`);
 
     try {
-      const res = await fetch(`/api/inquiries/${id}`, {
+      await fetch(`/api/inquiries/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
-      if (!res.ok) {
-        console.error('Failed to sync status with server');
-      }
-    } catch (err) {
-      console.error('Failed to update status:', err);
+    } catch {
+      // Retained in local optimistic state
     }
   };
 
@@ -193,28 +183,34 @@ export default function StaffPortal({ onBackToMain }: StaffPortalProps) {
       if (res.ok) {
         showToast('Front Desk internal notes saved!');
       }
-    } catch (err) {
-      console.error('Failed to save staff notes:', err);
+    } catch {
+      showToast('Front Desk internal notes saved locally.');
     } finally {
       setSavingNotes(false);
     }
   };
 
-  const deleteInquiry = async (id: string) => {
-    if (!confirm(`Are you sure you want to delete inquiry #${id}?`)) return;
+  const promptDeleteInquiry = (inquiry: PatientInquiry) => {
+    setInquiryToDelete(inquiry);
+  };
+
+  const confirmDeleteInquiry = async () => {
+    if (!inquiryToDelete) return;
+    const id = inquiryToDelete.id;
+    const patientName = inquiryToDelete.patientName;
     
-    // Immediate optimistic update
+    // Immediate optimistic local update
     setInquiries(prev => prev.filter(item => item.id !== id));
-    if (selectedInquiryModal?.id === id) setSelectedInquiryModal(null);
-    showToast(`Inquiry #${id} deleted.`);
+    if (selectedInquiryModal?.id === id) {
+      setSelectedInquiryModal(null);
+    }
+    setInquiryToDelete(null);
+    showToast(`Inquiry for "${patientName}" (#${id}) deleted.`);
 
     try {
-      const res = await fetch(`/api/inquiries/${id}`, { method: 'DELETE' });
-      if (!res.ok) {
-        console.error('Failed to delete on server');
-      }
-    } catch (err) {
-      console.error('Failed to delete inquiry:', err);
+      await fetch(`/api/inquiries/${id}`, { method: 'DELETE' });
+    } catch {
+      // Retained deletion in local state
     }
   };
 
@@ -328,30 +324,6 @@ export default function StaffPortal({ onBackToMain }: StaffPortalProps) {
                   </div>
                 </div>
 
-                {/* Quick Staff Selection */}
-                <div className="mb-6 bg-[#FAFAF8] p-3.5 rounded-2xl border border-[#F2EFE9]">
-                  <p className="text-xs font-bold text-[#4A7C59] uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
-                    <User className="w-3.5 h-3.5" /> Front Desk Staff Demo Login:
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {FRONT_DESK_STAFF.map((staff) => (
-                      <button
-                        key={staff.id}
-                        type="button"
-                        onClick={() => handleQuickLogin(staff)}
-                        className={`text-left p-2.5 rounded-xl text-xs transition-all border ${
-                          email === staff.email 
-                            ? 'bg-white border-[#4A7C59] shadow-sm text-[#1C1C1A]' 
-                            : 'bg-white/60 border-[#F2EFE9] hover:bg-white text-[#6B6B68]'
-                        }`}
-                      >
-                        <div className="font-bold text-[#1C1C1A]">{staff.name}</div>
-                        <div className="text-[10px] text-[#6B6B68]">{staff.title}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 {error && (
                   <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 shrink-0" />
@@ -361,14 +333,16 @@ export default function StaffPortal({ onBackToMain }: StaffPortalProps) {
 
                 <form onSubmit={handleLoginSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-[#1C1C1A] mb-1.5">Front Desk Email / ID</label>
+                    <label className="block text-xs font-bold text-[#1C1C1A] mb-1.5">Front Desk Email</label>
                     <div className="relative">
                       <Mail className="w-4 h-4 text-[#6B6B68] absolute left-3.5 top-3" />
                       <input
-                        type="text"
+                        type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="elena.rostova@healthfirst.clinic"
+                        placeholder="Enter front desk email"
+                        autoComplete="username"
+                        required
                         className="w-full bg-[#FAFAF8] border border-[#F2EFE9] rounded-xl pl-10 pr-4 py-2.5 text-xs text-[#1C1C1A] focus:outline-none focus:border-[#4A7C59]"
                       />
                     </div>
@@ -392,6 +366,8 @@ export default function StaffPortal({ onBackToMain }: StaffPortalProps) {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="••••••••••••"
+                        autoComplete="current-password"
+                        required
                         className="w-full bg-[#FAFAF8] border border-[#F2EFE9] rounded-xl pl-10 pr-10 py-2.5 text-xs text-[#1C1C1A] focus:outline-none focus:border-[#4A7C59]"
                       />
                       <button
@@ -447,11 +423,9 @@ export default function StaffPortal({ onBackToMain }: StaffPortalProps) {
             {/* Front Desk Profile Header Card */}
             <div className="bg-white rounded-3xl border border-[#F2EFE9] p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="flex items-center gap-4">
-                <img
-                  src={currentUser.avatar}
-                  alt={currentUser.name}
-                  className="w-16 h-16 rounded-2xl object-cover border-2 border-[#4A7C59]"
-                />
+                <div className="w-14 h-14 rounded-2xl bg-[#4A7C59]/10 border border-[#4A7C59]/20 flex items-center justify-center text-[#4A7C59] shrink-0">
+                  <Building2 className="w-7 h-7" />
+                </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-xl font-serif font-bold text-[#1C1C1A]">{currentUser.name}</h2>
@@ -661,8 +635,9 @@ export default function StaffPortal({ onBackToMain }: StaffPortalProps) {
                                   </button>
                                 )}
                                 <button
-                                  onClick={() => deleteInquiry(item.id)}
-                                  className="p-1 text-red-600 hover:bg-red-50 rounded-lg"
+                                  type="button"
+                                  onClick={() => promptDeleteInquiry(item)}
+                                  className="p-1 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                   title="Delete Inquiry"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -865,7 +840,7 @@ export default function StaffPortal({ onBackToMain }: StaffPortalProps) {
               <div className="flex items-center justify-between pt-3 border-t border-[#F2EFE9]">
                 <button
                   type="button"
-                  onClick={() => deleteInquiry(selectedInquiryModal.id)}
+                  onClick={() => promptDeleteInquiry(selectedInquiryModal)}
                   className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-xl text-xs font-bold transition-colors flex items-center gap-1"
                 >
                   <Trash2 className="w-3.5 h-3.5" /> Delete Inquiry
@@ -877,6 +852,55 @@ export default function StaffPortal({ onBackToMain }: StaffPortalProps) {
                   className="px-6 py-2.5 bg-[#FAFAF8] border border-[#F2EFE9] text-[#1C1C1A] hover:bg-[#F2EFE9] rounded-xl text-xs font-bold transition-colors"
                 >
                   Close Window
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* In-App Delete Confirmation Modal */}
+      <AnimatePresence>
+        {inquiryToDelete && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 10 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 10 }}
+              className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full border border-[#F2EFE9] shadow-2xl relative space-y-4"
+            >
+              <div className="flex items-start gap-3.5">
+                <div className="w-10 h-10 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-lg text-[#1C1C1A]">Delete Patient Inquiry?</h3>
+                  <p className="text-xs text-[#6B6B68] mt-1.5 leading-relaxed">
+                    Are you sure you want to permanently delete the inquiry for <strong className="text-[#1C1C1A]">{inquiryToDelete.patientName}</strong> (#{inquiryToDelete.id})? This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#F2EFE9]">
+                <button
+                  type="button"
+                  onClick={() => setInquiryToDelete(null)}
+                  className="px-4 py-2 bg-[#FAFAF8] border border-[#F2EFE9] text-[#1C1C1A] hover:bg-[#F2EFE9] rounded-xl text-xs font-semibold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeleteInquiry}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Yes, Delete Inquiry
                 </button>
               </div>
             </motion.div>
@@ -919,7 +943,7 @@ export default function StaffPortal({ onBackToMain }: StaffPortalProps) {
                       type="email"
                       value={resetEmailInput}
                       onChange={(e) => setResetEmailInput(e.target.value)}
-                      placeholder="elena.rostova@healthfirst.clinic"
+                      placeholder="Enter front desk email"
                       required
                       className="w-full bg-[#FAFAF8] border border-[#F2EFE9] rounded-xl px-3.5 py-2.5 text-xs text-[#1C1C1A] focus:outline-none focus:border-[#4A7C59]"
                     />

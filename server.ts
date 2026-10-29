@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
@@ -79,31 +80,35 @@ CONSTRAINTS & BEHAVIOR:
     staffNotes?: string;
   }
 
-  // In-memory patient inquiries database
-  let inquiries: PatientInquiryRecord[] = [
-    {
-      id: "INQ-1001",
-      patientName: "Eleanor Vance",
-      dob: "1985-04-12",
-      phone: "(817) 555-0192",
-      email: "eleanor.vance@example.com",
-      concern: "I need to confirm if my recent bloodwork results are back before my appointment on Thursday.",
-      createdAt: "Today at 08:45 AM",
-      status: "New",
-      staffNotes: ""
-    },
-    {
-      id: "INQ-1002",
-      patientName: "Marcus Brody",
-      dob: "1972-09-28",
-      phone: "(817) 555-0341",
-      email: "m.brody@example.com",
-      concern: "Question regarding prescription refill for Lisinopril 10mg. My pharmacy says it needs prior approval.",
-      createdAt: "Today at 09:15 AM",
-      status: "Contacted",
-      staffNotes: "Left voicemail with CVS Pharmacy on Industrial Blvd."
+  const INQUIRIES_FILE = path.resolve(process.cwd(), "data", "inquiries.json");
+
+  function loadInquiries(): PatientInquiryRecord[] {
+    try {
+      if (fs.existsSync(INQUIRIES_FILE)) {
+        const raw = fs.readFileSync(INQUIRIES_FILE, "utf-8");
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {
+      console.error("Failed to load inquiries from file:", e);
     }
-  ];
+    return [];
+  }
+
+  function saveInquiries(data: PatientInquiryRecord[]) {
+    try {
+      const dir = path.dirname(INQUIRIES_FILE);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(INQUIRIES_FILE, JSON.stringify(data, null, 2), "utf-8");
+    } catch (e) {
+      console.error("Failed to save inquiries to file:", e);
+    }
+  }
+
+  // Persistent patient inquiries database
+  let inquiries: PatientInquiryRecord[] = loadInquiries();
 
   // API Route: Submit new patient concern from website form
   app.post("/api/inquiries", (req, res) => {
@@ -114,7 +119,7 @@ CONSTRAINTS & BEHAVIOR:
         return res.status(400).json({ error: "Patient name, phone number, and concern are required." });
       }
 
-      const newInquiry = {
+      const newInquiry: PatientInquiryRecord = {
         id: `INQ-${Math.floor(1000 + Math.random() * 9000)}`,
         patientName: patientName.trim(),
         dob: dob || "Not provided",
@@ -122,10 +127,12 @@ CONSTRAINTS & BEHAVIOR:
         email: email ? email.trim() : "Not provided",
         concern: concern.trim(),
         createdAt: `Today at ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
-        status: "New"
+        status: "New",
+        staffNotes: ""
       };
 
       inquiries.unshift(newInquiry);
+      saveInquiries(inquiries);
       res.status(201).json({ success: true, inquiry: newInquiry });
     } catch (err: any) {
       res.status(500).json({ error: err.message || "Failed to submit inquiry." });
@@ -149,6 +156,7 @@ CONSTRAINTS & BEHAVIOR:
 
     if (status !== undefined) inquiry.status = status;
     if (staffNotes !== undefined) inquiry.staffNotes = staffNotes;
+    saveInquiries(inquiries);
     res.json({ success: true, inquiry });
   });
 
@@ -156,6 +164,7 @@ CONSTRAINTS & BEHAVIOR:
   app.delete("/api/inquiries/:id", (req, res) => {
     const { id } = req.params;
     inquiries = inquiries.filter(item => item.id !== id);
+    saveInquiries(inquiries);
     res.json({ success: true });
   });
 

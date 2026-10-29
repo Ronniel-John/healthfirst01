@@ -28,6 +28,22 @@ export default function PatientConcernForm() {
     setLoading(true);
 
     try {
+      // 1. Submit to Clinic Staff Portal Backend API
+      const staffPortalPromise = fetch('/api/inquiries', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          patientName: patientName.trim(),
+          dob: dob.trim(),
+          phone: phone.trim(),
+          email: email.trim(),
+          concern: concern.trim(),
+        }),
+      });
+
+      // 2. Submit to Google Sheet via Google Apps Script
       const body = new URLSearchParams();
       body.append("patientName", patientName.trim());
       body.append("dateOfBirth", dob.trim());
@@ -35,7 +51,7 @@ export default function PatientConcernForm() {
       body.append("emailAddress", email.trim());
       body.append("message", concern.trim());
 
-      const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+      const googleSheetPromise = fetch(GOOGLE_APPS_SCRIPT_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
@@ -43,18 +59,17 @@ export default function PatientConcernForm() {
         body: body.toString(),
       });
 
-      const responseText = await response.text();
-      let result: any = null;
-      try {
-        result = JSON.parse(responseText);
-      } catch {
-        if (response.ok) {
-          result = { success: true };
-        }
-      }
+      // Await both submissions
+      const [staffRes, sheetRes] = await Promise.allSettled([
+        staffPortalPromise,
+        googleSheetPromise,
+      ]);
 
-      if (result && result.success === true) {
-        // Show success modal and reset form
+      const staffOk = staffRes.status === 'fulfilled' && staffRes.value.ok;
+      const sheetOk = sheetRes.status === 'fulfilled' && sheetRes.value.ok;
+
+      // As long as either the staff portal or sheet recorded it, succeed
+      if (staffOk || sheetOk) {
         setShowThankYouModal(true);
         setPatientName('');
         setDob('');
@@ -65,7 +80,7 @@ export default function PatientConcernForm() {
         throw new Error('We were unable to submit your message. Please try again.');
       }
     } catch {
-      setError('We were unable to submit your message. Please try again.');
+      setError('We were unable to submit your message. Please try again or call our front desk directly at (817) 345-6443.');
     } finally {
       setLoading(false);
     }
